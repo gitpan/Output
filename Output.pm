@@ -7,10 +7,11 @@ use Cwd;
 use Shell qw(diff);
 use vars qw($VERSION);
 
-$VERSION="1.01";
+$VERSION="1.02";
 
 sub new {
     my ($class, $dir) = @_;
+    $dir = getcwd()."/$dir" if $dir !~ m,^/,;
     if (!-d $dir) {
 	mkdir($dir,0777) or die "mkdir $dir";
     }
@@ -42,6 +43,7 @@ sub ready {
 
     my $accept = new IO::File;
     $accept->open(">$o->{dir}/accept") or die "open $o->{dir}/accept: $!";
+    $accept->print("#!/bin/sh\n");
 
     my (@ok,@bad);
 
@@ -64,6 +66,8 @@ sub ready {
 	    push(@ok, $orig);
 	}
     }
+    $accept->close;
+    chmod(0777, "$o->{dir}/accept")==1 or die "chmod accept: $!";
     (\@ok,\@bad);
 }
 
@@ -73,6 +77,29 @@ sub go {
     print "RESULTS:\n";
     for (@$ok) { print "ok $_\n"; }
     for (@$bad) { print "!! $_\n"; }
+}
+
+sub harness_report {
+    my ($d, $start) = @_;
+    $start ||= 1;
+
+    my %result;
+    my ($ok,$bad) = $d->ready();
+    my $allok=1;
+    for (@$ok) { $result{$_}=1 }
+    for (@$bad) { $result{$_}=0; $allok=0; }
+    
+    print "1..".scalar(@$ok + @$bad)."\n" if $start == 1;
+    
+    my $t=$start;
+    for my $f (sort keys %result) {
+	my $ok = $result{$f};
+	print($ok? "ok $t\n" : "not ok $t\n");
+	warn "!! $f\n" if !$ok;
+	++ $t;
+    }
+    
+    warn "-> $d->{dir}/diffs\n" if !$allok;
 }
 
 1;
@@ -89,7 +116,7 @@ Test::Output -  make it easier to do regression testing on logs or files
     $diff->check("log.011");
     $diff->check("log.012");
 
-    $diff->go();
+    $diff->harness_report(1);
 
 =head1 DESCRIPTION
 
@@ -111,18 +138,19 @@ the C<check('file')> method.
 
 =item #
 
-When you are done with your code, call $TEST->go().  All the files you
-mentioned will be compared with files generated during the prior run.
-Context diffs will be sent to C<$DIR/diffs>.  File statuses will be
-written to standard output:
+When you are done with your code, call $TEST->harness_report(1).  All
+the files you mentioned will be compared with files generated during
+the prior run.  Context diffs will be sent to C<$DIR/diffs>.  File
+statuses will be written to standard output:
 
-  FILE STATUS:
-  ok /tmp/out
-  ok /tmp/risk0
-  ok /tmp/risk1
-  ok /tmp/risk3
-  ok /tmp/risk4
-  !! /tmp/risk2
+  1..5
+  ok 1
+  ok 2
+  ok 3
+  not ok 4
+  !! /tmp/risk3  (stderr)
+  ok 5
+  -> /tmp/diffs  (stderr)
 
 C<ok> indicates that there were no differences.  You can examine the
 differences in the files marked with C<!!> in the C<$DIR/diffs>
