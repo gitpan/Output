@@ -1,0 +1,18 @@
+Test::Output
+
+Make it easier to do regression testing on logs or files.
+
+                                 -*-
+
+Runs a context diff on a set of files with the expectation that
+these files will not change.
+
+                                 -*-
+
+Requires File::Recurse (part of File::Tools module).
+
+                                 -*-
+
+Copyright (c) 1997 Joshua Nathaniel Pritikin.  All rights reserved.
+This package is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
